@@ -2,16 +2,16 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
-import authRoutes from "./routes/auth.js"
+import authRoutes from "./routes/auth.js";
 import event from "./routes/event.js";
 import booking from "./routes/booking.js";
 
 dotenv.config();
-connectDB();
 
-
+let dbConnected = false;
 
 const app = express();
+
 // CORS configuration for production
 const corsOptions = {
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -21,22 +21,34 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-
 app.use(express.json());
 
-app.use("/api/auth",authRoutes)
-app.use("/api/events",event)
-app.use("/api/bookings",booking)
+app.use("/api/auth", authRoutes);
+app.use("/api/events", event);
+app.use("/api/bookings", booking);
+
+// Health check endpoint
+app.get("/", (req, res) => {
+  res.json({ message: "NexEvent API is running" });
+});
 
 
-const PORT = process.env.PORT || 5000;
+// Export for Vercel serverless deployment
+export default async function handler(req, res) {
+  
+  if (!dbConnected) {
+    await connectDB();
+    dbConnected = true;
+  }
+  
+  return app(req, res);
+}
 
-// Export app for Vercel serverless
-export default app;
-
-// Only listen on port in development (not on Vercel)
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`);
-    });
+// For local development only
+if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'vercel') {
+  const PORT = process.env.PORT || 5000;
+  connectDB();
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 }
